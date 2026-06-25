@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>親子天下出版品索引機器人</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "微軟正黑體", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    background: #f5f0eb;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: #1a6b3c;
+    color: white;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  header h1 { font-size: 1.3rem; font-weight: 700; }
+  header p { font-size: 0.85rem; opacity: 0.85; margin-top: 2px; }
+  .logo { font-size: 2rem; }
+
+  .chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 16px;
+    max-width: 860px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .bubble {
+    margin-bottom: 16px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .bubble.user { flex-direction: row-reverse; }
+  .avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .avatar.bot { background: #1a6b3c; color: white; }
+  .avatar.user { background: #f4a31b; color: white; }
+  .msg {
+    max-width: 76%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    line-height: 1.6;
+    font-size: 0.92rem;
+  }
+  .bubble.bot .msg {
+    background: white;
+    border-radius: 4px 12px 12px 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  .bubble.user .msg {
+    background: #1a6b3c;
+    color: white;
+    border-radius: 12px 4px 12px 12px;
+  }
+
+  /* 系列卡片 */
+  .series-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 12px;
+    border-left: 5px solid #1a6b3c;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .series-card h2 {
+    font-size: 1.1rem;
+    color: #1a6b3c;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0ece5;
+  }
+  .info-block { margin-bottom: 14px; }
+  .info-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 5px;
+  }
+  .info-content { font-size: 0.9rem; color: #333; line-height: 1.7; }
+  .info-content ul { padding-left: 0; list-style: none; }
+  .info-content ul li {
+    padding: 3px 0;
+    border-bottom: 1px dashed #eee;
+  }
+  .info-content ul li:last-child { border-bottom: none; }
+  .tag {
+    display: inline-block;
+    background: #e8f5ee;
+    color: #1a6b3c;
+    border: 1px solid #b8deca;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 0.82rem;
+    margin: 2px 3px 2px 0;
+  }
+  .age-tag {
+    display: inline-block;
+    background: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffcc80;
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .book-count {
+    display: inline-block;
+    background: #1a6b3c;
+    color: white;
+    border-radius: 12px;
+    padding: 1px 10px;
+    font-size: 0.82rem;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  /* 快速選單 */
+  .quick-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .quick-btn {
+    background: #e8f5ee;
+    color: #1a6b3c;
+    border: 1px solid #a8d5b8;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .quick-btn:hover {
+    background: #1a6b3c;
+    color: white;
+  }
+
+  /* 搜尋結果列表 */
+  .result-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+  .result-item {
+    background: #f9fdf9;
+    border: 1px solid #c8e6d4;
+    border-radius: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .result-item:hover { background: #e8f5ee; border-color: #1a6b3c; }
+  .result-item-name { font-weight: 700; color: #1a6b3c; font-size: 0.92rem; }
+  .result-item-sub { font-size: 0.8rem; color: #777; margin-top: 2px; }
+  .result-item-age { font-size: 0.8rem; color: #e65100; font-weight: 700; }
+
+  /* 輸入區 */
+  .input-area {
+    background: white;
+    border-top: 1px solid #ddd;
+    padding: 16px;
+  }
+  .input-row {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    gap: 10px;
+  }
+  #user-input {
+    flex: 1;
+    border: 2px solid #ddd;
+    border-radius: 24px;
+    padding: 10px 18px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #user-input:focus { border-color: #1a6b3c; }
+  #send-btn {
+    background: #1a6b3c;
+    color: white;
+    border: none;
+    border-radius: 24px;
+    padding: 10px 22px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s;
+  }
+  #send-btn:hover { background: #145230; }
+
+  .bold-intro b { color: #1a4a28; }
+  .no-result { color: #888; font-style: italic; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">📚</div>
+  <div>
+    <h1>親子天下出版品索引機器人</h1>
+    <p>2021 年度完整書系查詢 · 輸入系列名稱或關鍵字搜尋</p>
+  </div>
+</header>
+
+<div class="chat-area" id="chat-area">
+  <div class="bubble bot">
+    <div class="avatar bot">🤖</div>
+    <div>
+      <div class="msg">哈囉！我是親子天下出版品索引機器人 📖<br>請輸入書系名稱或關鍵字（例如：閱讀123、賴馬、知識繪本、青少年…），我會幫你找到完整系列資訊！</div>
+      <div class="quick-btns" id="quick-btns">
+        <button class="quick-btn" onclick="sendQuery('閱讀123 橋梁書')">閱讀123 橋梁書</button>
+        <button class="quick-btn" onclick="sendQuery('樂讀456 兒童故事')">樂讀456 兒童故事</button>
+        <button class="quick-btn" onclick="sendQuery('幼幼書')">幼幼書</button>
+        <button class="quick-btn" onclick="sendQuery('知識繪本')">知識繪本</button>
+        <button class="quick-btn" onclick="sendQuery('少年天下')">少年天下</button>
+        <button class="quick-btn" onclick="sendQuery('達克比')">達克比辦案</button>
+        <button class="quick-btn" onclick="sendQuery('點讀')">小行星點讀</button>
+        <button class="quick-btn" onclick="sendQuery('怪傑佐羅力')">怪傑佐羅力</button>
+        <button class="quick-btn" onclick="sendQuery('可能小學')">可能小學</button>
+        <button class="quick-btn" onclick="sendQuery('全部系列')">顯示全部系列</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="input-area">
+  <div class="input-row">
+    <input type="text" id="user-input" placeholder="輸入書系名稱或關鍵字…" onkeydown="if(event.key==='Enter') send()">
+    <button id="send-btn" onclick="send()">查詢 →</button>
+  </div>
+</div>
+
+<script>
+const SERIES = [
+  {
+    id: "yuanyou",
+    name: "幼幼書（0-2歲）",
+    category: "童書",
+    age: "0–2 歲",
+    intro: [
+      { title: "系列定位", body: "依照幼兒身心發展進程，以幼兒本位概念為幼齡孩子與家長精選優良閱讀素材。" },
+      { title: "內容特色", body: "文字簡明易懂、饒富趣味，唸起來充滿音韻之美，貼近幼兒日常生活情境。" },
+      { title: "功能目的", body: "啟蒙幼兒最初閱讀經驗，同時加深父母對幼兒發展的認知，促進親子關係緊密。" }
+    ],
+    benefit: "從幼兒第一個成長期出發，以趣味語言與生活情境培養閱讀習慣，兼顧幼兒情緒同理與親子共讀，是寶寶最佳閱讀啟蒙素材。",
+    keywords: ["幼兒啟蒙", "親子共讀", "情緒發展", "生活自理", "感官學習"],
+    books: [
+      { title: "我長大了生活自理套書", count: 4 },
+      { title: "小象散步系列", count: 3 },
+      { title: "第一套與幼兒的悄悄話繪本", count: 3 },
+      { title: "熊寶貝生活學習禮物組", count: 3 },
+      { title: "幼兒的第一套 Baby STEAM", count: 4 },
+      { title: "小惡魔尼尼的叛逆繪本", count: 2 }
+    ]
+  },
+  {
+    id: "dianling",
+    name: "小行星點讀系列（3-10歲）",
+    category: "童書",
+    age: "3–10 歲",
+    intro: [
+      { title: "系列定位", body: "結合點讀筆技術，打造有聲互動閱讀體驗，是學齡前幼小銜接的最佳啟蒙教材。" },
+      { title: "內容特色", body: "涵蓋注音學習、英語啟蒙、世界地理等多元主題，融合遊戲互動與反覆練習機制。" },
+      { title: "功能目的", body: "提早建立閱讀習慣，培養幼兒專注力與穩定度，讓孩子主動探索閱讀與學習的樂趣。" }
+    ],
+    benefit: "利用聲音互動強化記憶與語感，讓孩子在遊戲中自然習得注音、英語與知識，適合幼小銜接階段，是家庭雙語啟蒙的高 CP 值選擇。",
+    keywords: ["點讀筆", "雙語啟蒙", "注音學習", "幼小銜接", "有聲互動", "英語學習"],
+    books: [
+      { title: "賴馬中英雙語點讀繪本", count: 2 },
+      { title: "世界探險隊", count: 1 },
+      { title: "吳敏蘭陪小孩聽英文童話", count: 2 },
+      { title: "唱兒歌學注音", count: 2 },
+      { title: "中英雙語啟蒙寶盒（含點讀筆）", count: null },
+      { title: "識字遊戲 100", count: null },
+      { title: "聽故事玩語文", count: 4 },
+      { title: "一起來唸ㄅㄆㄇ（點讀注音墊板）", count: null },
+      { title: "開心認識ㄅㄆㄇ、ABC（點讀海報）", count: null },
+      { title: "點讀錄音貼紙", count: null }
+    ]
+  },
+  {
+    id: "故事繪本",
+    name: "故事繪本（3-8歲）",
+    category: "童書",
+    age: "3–8 歲",
+    intro: [
+      { title: "系列定位", body: "結合國內外知名作者，出版兼具在地與國際化的品格教育繪本。" },
+      { title: "內容特色", body: "依照兒童發展特點和進程選書，以溫暖圖文說出情緒、品格、同理心等生命議題。" },
+      { title: "代表作家", body: "賴馬（情緒主題）、陳致元（親子生活）、唐唐（短耳兔）等本土優秀創作者。" }
+    ],
+    benefit: "透過貼近幼兒生活的故事，潛移默化培養品格與情緒智商，本土優秀作者確保語言親切自然，適合親子共讀每一天。",
+    keywords: ["品格教育", "情緒學習", "親子共讀", "賴馬", "陳致元", "本土創作"],
+    books: [
+      { title: "我變成一隻噴火龍了！（賴馬）", count: 1 },
+      { title: "愛哭公主（賴馬）", count: 1 },
+      { title: "生氣王子（賴馬）", count: 1 },
+      { title: "金太陽與銀太陽（賴馬）", count: 1 },
+      { title: "我們班的新同學 斑傑明·馬利（賴馬）", count: 1 },
+      { title: "早起的一天（賴馬）", count: 1 },
+      { title: "猜一猜我是誰（賴馬）", count: 1 },
+      { title: "最棒的禮物（賴馬）", count: 1 },
+      { title: "想念（陳致元）", count: 1 },
+      { title: "城市小英雄（陳致元）", count: 1 },
+      { title: "小豬乖乖系列：幼兒生活成長套書（陳致元）", count: 6 },
+      { title: "帕拉帕拉山的妖怪（陳致元）", count: 1 },
+      { title: "短耳兔（唐唐）", count: 1 },
+      { title: "短耳兔考0分（唐唐）", count: 1 },
+      { title: "短耳兔與小象莎莎（唐唐）", count: 1 },
+      { title: "小小思考家系列", count: 2 },
+      { title: "我的感覺（中英雙語繪本套書）", count: 8 },
+      { title: "發現一頂帽子（雍·卡拉森）", count: 1 },
+      { title: "一直一直往下挖（雍·卡拉森）", count: 1 },
+      { title: "這不是我的帽子（雍·卡拉森）", count: 1 },
+      { title: "大吼大叫的企鵝媽媽", count: 1 },
+      { title: "棉被君和他的朋友們套書", count: 2 },
+      { title: "孩子的第一套「學思達小學堂」繪本", count: 5 },
+      { title: "貓熊警察推理遊戲寶盒", count: 1 },
+      { title: "貓熊警察：恐龍蛋失竊事件", count: 1 },
+      { title: "威利在哪裡？暢銷修訂版", count: 5 },
+      { title: "祖孫共讀經典繪本套書", count: 4 }
+    ]
+  },
+  {
+    id: "zhishi_huiben",
+    name: "知識繪本（3-10歲）",
+    category: "童書",
+    age: "3–10 歲",
+    intro: [
+      { title: "系列定位", body: "以提供孩子不同面向知識為主訴求，精選科學、人文、傳記等類型題材。" },
+      { title: "內容特色", body: "結合具藝術性、設計感、渲染力的插圖，並精準考究知識正確性，圖文整合兼顧美感。" },
+      { title: "功能目的", body: "幫助學齡前到國小低年級孩子培養多元興趣，建立跨域知識整合的理解力。" }
+    ],
+    benefit: "兼顧知識正確性與視覺美感，以繪本形式讓孩子輕鬆接觸科學、人文、財商、數位素養等多元議題，奠定跨域閱讀習慣的最佳基礎。",
+    keywords: ["知識啟蒙", "跨域學習", "科學探索", "素養教育", "繪本知識"],
+    books: [
+      { title: "我的第一套安全知識繪本", count: 4 },
+      { title: "我的第一套生命科學繪本", count: 3 },
+      { title: "我的第一套食育安全知識繪本", count: 3 },
+      { title: "小兔子學理財（獻給孩子的第一套財商智慧繪本）", count: 4 },
+      { title: "數位世界的孩子", count: 4 },
+      { title: "世界中的孩子", count: 4 },
+      { title: "科學不思議系列", count: 5 },
+      { title: "翠鳥（邱承宗）", count: 1 },
+      { title: "女力科學家", count: 1 },
+      { title: "地圖喵：啟蒙孩子的圖像思維", count: 1 },
+      { title: "去投票吧！做出選擇，創造改變", count: 1 },
+      { title: "燒杯君與放學後的實驗教室", count: 1 },
+      { title: "億萬億萬顆星星", count: 1 },
+      { title: "祕密計畫", count: 1 }
+    ]
+  },
+  {
+    id: "yizhi",
+    name: "兒童益智商品（3-10歲）",
+    category: "童書",
+    age: "3–10 歲",
+    intro: [
+      { title: "系列定位", body: "與本土創作者攜手開發兼具遊戲與學習的益智產品，超人氣益智遊戲系列深受孩子喜愛。" },
+      { title: "內容特色", body: "涵蓋桌遊、卡牌、科學玩具多種形式，題目多元且與兒童生活經驗接軌。" },
+      { title: "功能目的", body: "讓孩子在動腦遊戲過程中培養情緒覺察、觀察力、問題解決等多元能力。" }
+    ],
+    benefit: "寓教於樂設計讓孩子主動參與，結合 108 課綱素養精神，有效培養邏輯推理、數感、科學探究等核心能力，親子同樂更加分。",
+    keywords: ["益智遊戲", "桌遊", "科學玩具", "邏輯推理", "STEAM", "親子互動"],
+    books: [
+      { title: "走到哪玩到哪：腦力大挑戰72", count: null },
+      { title: "走到哪玩到哪：記憶力大挑戰49", count: null },
+      { title: "走到哪玩到哪：邏輯推理遊戲89", count: null },
+      { title: "走到哪玩到哪：數字益智遊戲87", count: null },
+      { title: "走到哪玩到哪：觀察力大考驗75", count: null },
+      { title: "賴馬的益智遊戲100", count: null },
+      { title: "小朋友益智遊戲100", count: null },
+      { title: "小朋友腦力激盪50", count: null },
+      { title: "達克比出任務：恐龍探險隊益智遊戲100", count: null },
+      { title: "小孩的科學：生物調查顯微鏡", count: null },
+      { title: "小孩的科學：小學生STEAM實驗室", count: null },
+      { title: "魔球聯盟（數學桌遊）", count: null },
+      { title: "數學魔術師", count: null },
+      { title: "魔法液晶寶石", count: null },
+      { title: "視覺魔法動畫機", count: null },
+      { title: "新版星空投影星象儀", count: null }
+    ]
+  },
+  {
+    id: "qiaoliangShu",
+    name: "閱讀123 橋梁書（7-9歲）",
+    category: "童書",
+    age: "7–9 歲",
+    intro: [
+      { title: "系列定位", body: "為初步跨入文字閱讀的國小低年級孩子設計的橋梁書第一品牌。" },
+      { title: "內容特色", body: "以 2,000 個單字為主，圖文比 1:1，依字數與情節複雜度分「初階」與「進階」。" },
+      { title: "功能目的", body: "讓孩子感受「讀完一本書」的成就感，並讓父母和老師有系統地引領快樂閱讀。" }
+    ],
+    benefit: "專為閱讀起步階段設計，字數適中、圖文並茂，分階設計讓孩子循序漸進建立自信，輕巧跨越文字閱讀障礙，是獨立閱讀的最佳跳板。",
+    keywords: ["橋梁書", "閱讀起步", "獨立閱讀", "國小低年級", "圖文並茂", "分階閱讀"],
+    books: [
+      { title: "我會自己讀！小學生的第一套橋梁書", count: 6 },
+      { title: "我會自己讀2：校園生活橋梁書", count: 6 },
+      { title: "我會自己讀3：小勇氣・大冒險橋梁書選", count: 6 },
+      { title: "愛思考的貓巧可", count: 5 },
+      { title: "爆笑小火龍生活成長故事（精選）", count: 7 },
+      { title: "小熊兄妹的點子屋1：點子屋新開張", count: 1 },
+      { title: "小熊兄妹的點子屋2：不能說的三句話", count: 1 },
+      { title: "屁屁超人套書（精選）", count: 9 },
+      { title: "妖怪小學套書", count: 4 },
+      { title: "字的童話", count: 7 },
+      { title: "怪傑佐羅力54：怪傑佐羅力消失了?!", count: 1 },
+      { title: "怪傑佐羅力55：好吃的金牌", count: 1 },
+      { title: "怪傑佐羅力56：海底大探險", count: 1 },
+      { title: "怪傑佐羅力57：地底大探險", count: 1 },
+      { title: "君偉上小學", count: 6 },
+      { title: "泡泡精靈1：尋找魔力星星果", count: 1 },
+      { title: "泡泡精靈2：玩具屋大冒險", count: 1 },
+      { title: "小兒子1：爸爸是夜晚暴食龍", count: 1 },
+      { title: "小兒子2：土匪窩裡的老大", count: 1 }
+    ]
+  },
+  {
+    id: "erTongGuShi",
+    name: "樂讀456 兒童故事（8-12歲）",
+    category: "童書",
+    age: "8–12 歲",
+    intro: [
+      { title: "系列定位", body: "幫助國小中年級孩子打通閱讀關節，字數在 2 萬∼6 萬字不等的中長篇故事讀本。" },
+      { title: "內容特色", body: "類型多元，涵蓋推理、冒險、歷史、幻想等，兼具文學性與趣味性，鼓勵孩子主動閱讀。" },
+      { title: "功能目的", body: "培養閱讀續航力與思辨力，讓孩子從「拉近自己與文字距離」進階到「往書中探求對世界的了解」。" }
+    ],
+    benefit: "字數設計符合中年級閱讀量，題材多元豐富，讓孩子在精彩故事中自然培養閱讀耐力與批判思考，找到認同感並愛上閱讀。",
+    keywords: ["中長篇故事", "閱讀續航力", "思辨力", "國小中年級", "冒險推理", "歷史文學"],
+    books: [
+      { title: "神奇柑仔店系列", count: 8 },
+      { title: "機密任務1：代號X，抓住那個嫌犯！", count: 1 },
+      { title: "故事想想：透明人＋藍眼叔叔", count: 2 },
+      { title: "可能小學的藝術國寶任務", count: 4 },
+      { title: "可能小學的歷史任務I", count: 4 },
+      { title: "可能小學的西洋文明任務", count: 4 },
+      { title: "可能小學的愛臺灣任務", count: 4 },
+      { title: "可能小學的歷史任務II", count: 4 },
+      { title: "可能小學的愛地球任務", count: 4 },
+      { title: "三個問號偵探團－首部曲冒險序章", count: 4 },
+      { title: "晨讀10分鐘：漫畫語文故事集（故事文本篇）", count: null },
+      { title: "晨讀10分鐘：漫畫語文故事集（訊息文本篇）", count: null },
+      { title: "晨讀10分鐘：成語故事集1+2", count: 2 },
+      { title: "晨讀10分鐘：科學故事集", count: 8 },
+      { title: "天空下起帽子雨（羅大里）", count: 1 },
+      { title: "小洋蔥頭冒險記（羅大里）", count: 1 },
+      { title: "窗邊的小荳荳（三十週年紀念版）", count: 1 },
+      { title: "酷少年故事集", count: 1 },
+      { title: "君偉的節日報告", count: 1 }
+    ]
+  },
+  {
+    id: "zhiShiXueXi",
+    name: "知識讀本館（8-12歲）",
+    category: "童書",
+    age: "8–12 歲",
+    intro: [
+      { title: "系列定位", body: "結合「故事文本」與「事實文本」，讓國小孩子從有趣故事中探測不同領域的知識。" },
+      { title: "內容特色", body: "包含達克比辦案（漫畫科學）、超科少年（科學人物傳記）、數感小學冒險（數學橋梁書）等強棒系列。" },
+      { title: "功能目的", body: "因應新課綱素養導向，提供多元跨領域文本，達到育教於樂之效。" }
+    ],
+    benefit: "結合漫畫、故事與知識，讓孩子在閱讀娛樂中習得科學、數學、生物等跨域知識，扣合 108 課綱、輕鬆無痛學習。",
+    keywords: ["知識漫畫", "素養學習", "跨域閱讀", "科普", "數學", "108課綱"],
+    books: [
+      { title: "達克比辦案系列（1-9集）", count: 9 },
+      { title: "超科少年系列（1-6集）", count: 6 },
+      { title: "數感小學冒險：數字的謎團", count: 6 },
+      { title: "數感小學冒險：圖形的謎團", count: 4 },
+      { title: "逃出這本書：沉船求生記", count: 1 },
+      { title: "逃出這本書：金字塔歷險", count: 1 },
+      { title: "腕龍溜滑梯（恐龍知識讀本）", count: 1 },
+      { title: "暴龍時光機（恐龍知識讀本）", count: 1 },
+      { title: "理財小達人系列", count: 4 }
+    ]
+  },
+  {
+    id: "qingshaonianWenXue",
+    name: "少年天下 青少年文學（10-15歲）",
+    category: "童書",
+    age: "10–15 歲",
+    intro: [
+      { title: "系列定位", body: "精選具有議題深度、精采故事的國外翻譯得獎作品，或與國內優秀本土作家合作打造的青少年長篇小說。" },
+      { title: "內容特色", body: "以少年為本位，涵蓋奇幻冒險、成長議題、歷史武俠等多元文類，深度與可讀性兼具。" },
+      { title: "功能目的", body: "帶領邁入青春期的大孩子進入文字閱讀領域，以文學建立人文視野與自我探索能力。" }
+    ],
+    benefit: "精選國際得獎作品與本土優秀創作，題材多元貼近青少年生活，有效帶領孩子愛上文字閱讀，培養獨立思考與情感豐富的閱讀素養。",
+    keywords: ["青少年小說", "長篇文學", "奇幻冒險", "本土作家", "議題深度", "人文閱讀"],
+    books: [
+      { title: "仙靈傳奇系列（陳郁如）", count: 4 },
+      { title: "少年廚俠系列（鄭宗弦）", count: 5 },
+      { title: "天地方程式（富安陽子）", count: 3 },
+      { title: "獵書遊戲系列", count: 3 },
+      { title: "甲蟲男孩系列", count: 3 },
+      { title: "晴空小侍郎（哲也）", count: 2 },
+      { title: "奇蹟男孩（R.J.帕拉秋）", count: 1 },
+      { title: "悶蛋小鎮（張友漁）", count: 1 },
+      { title: "遊戲現在開始", count: 1 },
+      { title: "陳郁如的旅行風景", count: 2 }
+    ]
+  },
+  {
+    id: "chenDu10",
+    name: "晨讀10分鐘（中學生）",
+    category: "童書",
+    age: "10–15 歲",
+    intro: [
+      { title: "系列定位", body: "網羅各方名家主編，精選多元題材選文，適合在國中校園推廣閱讀教育的優質讀本。" },
+      { title: "內容特色", body: "文體遍及散文、新詩、記敘文、論說文、演說文、人物故事，並附閱讀素養題本。" },
+      { title: "功能目的", body: "結合品學堂合作的素養題本，有效提升閱讀理解力，對應 108 課綱閱讀策略。" }
+    ],
+    benefit: "每天只需 10 分鐘，潛移默化提升語文素養；附素養題本讓閱讀與考試接軌，適合班級推廣及自主閱讀，老師家長都推薦。",
+    keywords: ["晨讀", "閱讀素養", "國中生", "108課綱", "多元文體", "素養題本"],
+    books: [
+      { title: "黃哲斌編選：運動故事集（附閱讀素養題本）", count: 1 },
+      { title: "褚士瑩編選：世界和你想的不一樣（附題本）", count: 1 },
+      { title: "PanSci泛科學編選：科學和你想的不一樣（附題本）", count: 1 },
+      { title: "葉丙成編選：我的成功，我決定（附題本）", count: 1 },
+      { title: "何琦瑜編選：啟蒙人生故事集（附題本）", count: 1 },
+      { title: "黃國珍編選：你的獨特，我看見（附題本）", count: 1 }
+    ]
+  },
+  {
+    id: "zhangManJuan",
+    name: "張曼娟成語學堂",
+    category: "童書",
+    age: "10–15 歲",
+    intro: [
+      { title: "系列定位", body: "將成語融入新編故事，帶孩子享受閱讀、真正理解成語的知識型故事書。" },
+      { title: "內容特色", body: "規劃寓言神話、推理尋寶、同儕社交、親情啟示等主題，依難易度分中級、晉級、高級、少年四階。" },
+      { title: "功能目的", body: "附成語出處、典故、解釋並補充相似相反成語，具體實用且循序漸進培養孩子語文自信。" }
+    ],
+    benefit: "以故事情境活化成語記憶，分級設計讓孩子無痛累積詞彙量，搭配多位知名作家操筆與插畫家繪圖，是語文學習最有趣的好夥伴。",
+    keywords: ["成語學習", "語文教育", "故事情境", "分級閱讀", "張曼娟", "中學語文"],
+    books: [
+      { title: "張曼娟成語學堂I套書", count: 4 },
+      { title: "張曼娟成語學堂II套書", count: 4 }
+    ]
+  },
+  {
+    id: "shaoNianZhiShiJia",
+    name: "少年知識家（10-15歲）",
+    category: "童書",
+    age: "10–15 歲",
+    intro: [
+      { title: "系列定位", body: "主打大開本百科及圖文書，結合各領域專家將龐雜知識重新梳理，是青少年跨域知識最佳良伴。" },
+      { title: "內容特色", body: "包含 100問臺灣本位百科、最有梗的20堂課（物理／化學）、上谷夫婦漫畫科學、故事臺灣史等。" },
+      { title: "功能目的", body: "幫助國小高年級至國中生輕鬆跨越新課綱素養之壁，融會貫通跨科跨領域知識與技能。" }
+    ],
+    benefit: "大開本圖文設計降低學習門檻，結合課綱對應表讓補充學習有方向，涵蓋科學、歷史、地理等全科，是自主學習最強助攻。",
+    keywords: ["少年百科", "素養教育", "科學史", "跨域知識", "新課綱", "圖文書"],
+    books: [
+      { title: "天氣100問", count: 1 },
+      { title: "地震100問", count: 1 },
+      { title: "科學史上最有梗的20堂物理課", count: 2 },
+      { title: "科學史上最有梗的20堂化學課", count: 2 },
+      { title: "燒杯君與他的小夥伴（上谷夫婦）", count: 1 },
+      { title: "最有梗的單位教室：公尺君與他的單位", count: 1 },
+      { title: "最有梗的理科教室", count: 1 },
+      { title: "故事臺灣史", count: null },
+      { title: "遇見世界古文明", count: 1 },
+      { title: "法布爾的微觀世界", count: 1 },
+      { title: "世界是怎麼改變的？地理來解答", count: 1 },
+      { title: "運動大百科", count: 1 },
+      { title: "13歲就開始：情緒管理術", count: 1 },
+      { title: "13歲就開始：時間管理術", count: 1 },
+      { title: "13歲就開始：筆記整理術", count: 1 },
+      { title: "13歲就開始：口語表達術", count: 1 },
+      { title: "13歲就開始：生涯探索術", count: 1 },
+      { title: "13歲就開始：專題寫作術", count: 1 }
+    ]
+  },
+  {
+    id: "xuesiDa",
+    name: "學思達系列（教育書）",
+    category: "教育書",
+    age: "教師 / 家長",
+    intro: [
+      { title: "系列定位", body: "由學思達創辦人張輝誠老師親自著作，為教師提供翻轉課堂的觀念與實務操作指引。" },
+      { title: "內容特色", body: "從觀念、做法、工具到案例，引導傳統教師轉型為「學習設計師」，並深度解說薩提爾對話模式應用。" },
+      { title: "功能目的", body: "培養具備自學、思考、表達能力的未來人才，並協助教師社群持續增能。" }
+    ],
+    benefit: "理論與實務兼顧，從一線教學場域出發，幫助老師建立以學生為主體的課堂，是教育改革現場最務實的工具書。",
+    keywords: ["學思達", "翻轉教室", "薩提爾", "教師增能", "教學設計", "素養教學"],
+    books: [
+      { title: "學．思．達：張輝誠的翻轉實踐", count: 1 },
+      { title: "學思達增能：張輝誠的創新教學心法", count: 1 },
+      { title: "教室裡的對話練習：當學思達遇見薩提爾", count: 1 },
+      { title: "薩提爾的對話練習（李崇建）", count: 1 },
+      { title: "薩提爾縱深對話", count: 1 }
+    ]
+  },
+  {
+    id: "wenMeiYu",
+    name: "溫美玉備課趴系列（教育書）",
+    category: "教育書",
+    age: "教師 / 家長",
+    intro: [
+      { title: "系列定位", body: "由教學名師溫美玉分享聰明備課策略，橫跨語文、數學、社會、情緒等多科教學實錄。" },
+      { title: "內容特色", body: "以實際課堂案例為主，提供可操作的教學策略與學習工具，搭配情緒寶盒等教具組合。" },
+      { title: "功能目的", body: "幫助教師提升備課效能，打造素養導向的學習環境，從知識到能力全方位培育。" }
+    ],
+    benefit: "從實際教學現場提煉的精華策略，各科均有專冊，可直接複製應用；搭配賴馬插畫與情緒教具，讓備課輕鬆有趣又有效。",
+    keywords: ["教學備課", "語文教學", "數學教學", "情緒教育", "溫美玉", "素養導向"],
+    books: [
+      { title: "溫美玉備課趴1（情緒表達與寫作的雙卡教學實錄）", count: 1 },
+      { title: "溫美玉備課趴2（閱讀理解與延伸寫作的五卡教學實錄）", count: 1 },
+      { title: "溫美玉數學趴", count: 1 },
+      { title: "溫美玉素養趴", count: 1 },
+      { title: "溫美玉社會趴", count: 1 },
+      { title: "教室裡的阿德勒", count: 1 }
+    ]
+  },
+  {
+    id: "jiaTing",
+    name: "家庭與生活（育兒教養）",
+    category: "家庭與生活",
+    age: "家長 / 照護者",
+    intro: [
+      { title: "系列定位", body: "全方位關照家有孩子後的食衣住行育樂各層面，提供親職照護者專業的教養知識與心靈支持。" },
+      { title: "內容特色", body: "涵蓋蒙特梭利教養、正向教養、情緒教育、品格培育等多元觀點，重量級作者群包含黃瑽寧、楊俐容、羅寶鴻等。" },
+      { title: "功能目的", body: "幫助家長了解孩子發展、找到適性教養方式，同時照護照顧者自身的身心健康。" }
+    ],
+    benefit: "結合臨床醫師、幼教專家、心理諮商師等各領域專業，提供科學實證的教養建議，讓家長在陪伴孩子成長的同時，也好好愛自己。",
+    keywords: ["育兒教養", "正向教養", "蒙特梭利", "情緒管理", "親子關係", "家庭生活"],
+    books: [
+      { title: "羅寶鴻的安定教養學", count: 1 },
+      { title: "蒙特梭利教養進行式（何翩翩）", count: 1 },
+      { title: "30招教出高EQ小孩（楊俐容）", count: 1 },
+      { title: "情緒教養從家庭開始（楊俐容）", count: 1 },
+      { title: "安心做父母在愛裡無懼（黃瑽寧）", count: 1 },
+      { title: "相親相愛不簡單：給爸媽的手足教養學（孫明儀）", count: 1 },
+      { title: "聽寶寶說話（周育如）", count: 1 },
+      { title: "讓孩子安心做自己（李坤珊）", count: 1 },
+      { title: "心理韌性（陳品皓）", count: 1 },
+      { title: "解碼青春期", count: 1 },
+      { title: "就算內心愧疚千百回我依然是個母親（金美敬）", count: 1 },
+      { title: "準媽媽心靈解憂書", count: 1 },
+      { title: "教養的真相（王宏哲套書）", count: 1 },
+      { title: "請問長庚醫生套書（0-18歲）", count: 3 },
+      { title: "從現在開始帶孩子遠離過敏（黃瑽寧）", count: 1 },
+      { title: "發燒免驚（黃瑽寧）", count: 1 },
+      { title: "小雨麻的副食品全紀錄", count: 1 }
+    ]
+  },
+  {
+    id: "zaoLuo",
+    name: "怪傑佐羅力系列",
+    category: "童書",
+    age: "7–10 歲",
+    intro: [
+      { title: "系列定位", body: "日本狂銷 3,500 萬本的兒童文學經典角色，博客來小學讀物年度之最。" },
+      { title: "內容特色", body: "每集暗藏謎題、小發明，有效引導創意及想像力；用字淺顯易懂，不愛閱讀的孩子也能輕鬆獨立閱讀。" },
+      { title: "功能目的", body: "建立孩子閱讀成就感，透過幽默故事激發想像力與創意思考。" }
+    ],
+    benefit: "長銷不衰的口碑系列，每集自成單元輕鬆入門，幽默搞笑的情節讓不愛閱讀的孩子也忍不住拿起書，建立閱讀習慣效果極佳。",
+    keywords: ["怪傑佐羅力", "橋梁書", "日本漫畫小說", "創意想像", "獨立閱讀", "長銷經典"],
+    books: [
+      { title: "怪傑佐羅力54：怪傑佐羅力消失了?!", count: 1 },
+      { title: "怪傑佐羅力55：好吃的金牌", count: 1 },
+      { title: "怪傑佐羅力56：海底大探險", count: 1 },
+      { title: "怪傑佐羅力57：地底大探險", count: 1 }
+    ]
+  },
+  {
+    id: "nengXiaoXue",
+    name: "可能小學系列（王文華）",
+    category: "童書",
+    age: "8–12 歲",
+    intro: [
+      { title: "系列定位", body: "帶領孩子穿越時空進入歷史現場，是最精彩的知識冒險故事，也是各系列的密室逃脫解謎體驗。" },
+      { title: "內容特色", body: "含蓋中國歷史、西洋文明、臺灣史、世界藝術等主題，每套4冊，結合知識性與故事性。" },
+      { title: "功能目的", body: "讓孩子在冒險故事中學習歷史文化知識，對應社會領域課綱，閱讀與學科學習相輔相成。" }
+    ],
+    benefit: "以穿越冒險包裝歷史知識，讓孩子主動想了解歷史、文化與藝術，扣合社會領域課綱，課外閱讀與課內學習完美結合。",
+    keywords: ["可能小學", "歷史冒險", "王文華", "臺灣史", "世界文明", "知識故事"],
+    books: [
+      { title: "可能小學的藝術國寶任務", count: 4 },
+      { title: "可能小學的歷史任務I（秦朝→唐朝→明朝）", count: 4 },
+      { title: "可能小學的西洋文明任務（埃及→希臘→羅馬）", count: 4 },
+      { title: "可能小學的愛臺灣任務（荷蘭時代→鄭成功）", count: 4 },
+      { title: "可能小學的歷史任務II（戰國→宋朝）", count: 4 },
+      { title: "可能小學的愛地球任務", count: 4 }
+    ]
+  },
+  {
+    id: "dakeBi",
+    name: "達克比辦案系列（胡妙芬）",
+    category: "童書",
+    age: "8–12 歲",
+    intro: [
+      { title: "系列定位", body: "最幽默的生物科普橋梁書，結合知識漫畫與懸疑推理，是兒童科普讀物的代表性系列。" },
+      { title: "內容特色", body: "幽默漫畫＋趣味故事＋知識學習小單元三合一，以爆笑懸疑故事融入生物學概念。" },
+      { title: "功能目的", body: "扣合中小學課綱，顛覆傳統科普書呈現，最具圖像式學習效果的生物科普入門讀物。" }
+    ],
+    benefit: "漫畫形式降低學習門檻，生物知識融入破案情節讓孩子讀到停不下來；是學科預習、課外補充的雙效讀物，深受師生推薦。",
+    keywords: ["達克比", "生物科普", "知識漫畫", "推理辦案", "科學學習", "108課綱"],
+    books: [
+      { title: "達克比辦案1", count: 1 },
+      { title: "達克比辦案2", count: 1 },
+      { title: "達克比辦案3", count: 1 },
+      { title: "達克比辦案4", count: 1 },
+      { title: "達克比辦案5", count: 1 },
+      { title: "達克比辦案6", count: 1 },
+      { title: "達克比辦案7", count: 1 },
+      { title: "達克比辦案8", count: 1 },
+      { title: "達克比辦案9", count: 1 }
+    ]
+  },
+  {
+    id: "qiZhongJia",
+    name: "神奇柑仔店系列（廣嶋玲子）",
+    category: "童書",
+    age: "8–12 歲",
+    intro: [
+      { title: "系列定位", body: "被譽為「兒童版解憂雜貨店」，透過神奇糖果解決各年齡層煩惱的短篇故事集。" },
+      { title: "內容特色", body: "每冊以不同年齡主角的煩惱為主題，情節溫暖療癒，引導孩子思考問題解決的方式。" },
+      { title: "功能目的", body: "培養孩子的情緒同理心，學習如何面對煩惱與壓力，想像力與趣味性滿點。" }
+    ],
+    benefit: "短篇結構易讀易完成，療癒的故事讓孩子在享受閱讀的同時學習情緒管理，適合課間閱讀或睡前共讀，親師生一致推薦。",
+    keywords: ["神奇柑仔店", "療癒故事", "情緒管理", "短篇小說", "廣嶋玲子", "解憂"],
+    books: [
+      { title: "神奇柑仔店1", count: 1 },
+      { title: "神奇柑仔店2", count: 1 },
+      { title: "神奇柑仔店3", count: 1 },
+      { title: "神奇柑仔店4", count: 1 },
+      { title: "神奇柑仔店5", count: 1 },
+      { title: "神奇柑仔店6", count: 1 },
+      { title: "神奇柑仔店7", count: 1 },
+      { title: "神奇柑仔店8", count: 1 }
+    ]
+  }
+];
+
+// ---- 搜尋邏輯 ----
+function searchSeries(query) {
+  if (!query.trim()) return [];
+  const q = query.toLowerCase().replace(/\s+/g, "");
+  if (q === "全部系列" || q === "全部" || q === "所有系列") return SERIES;
+  return SERIES.filter(s => {
+    const searchable = [
+      s.name, s.category, s.age, s.benefit,
+      ...s.intro.map(i => i.title + i.body),
+      ...s.keywords,
+      ...s.books.map(b => b.title)
+    ].join(" ").toLowerCase().replace(/\s+/g, "");
+    return searchable.includes(q);
+  });
+}
+
+// ---- 渲染系列卡片 ----
+function renderCard(s) {
+  const totalBooks = s.books.filter(b => b.count !== null).reduce((sum, b) => sum + (b.count || 0), 0);
+  const bookCountLabel = s.books.length > 0
+    ? `共 ${s.books.length} 個品項${totalBooks > 0 ? `，含 ${totalBooks} 冊` : ""}`
+    : "";
+  const introHtml = s.intro.map(i =>
+    `<li><b>${i.title}：</b>${i.body}</li>`
+  ).join("");
+  const keywordHtml = s.keywords.map(k => `<span class="tag">${k}</span>`).join("");
+  const bookHtml = s.books.map(b =>
+    `<li>${b.title}${b.count ? `<span style="color:#888;font-size:0.8rem;">（${b.count}冊）</span>` : ""}</li>`
+  ).join("");
+  return `
+  <div class="series-card">
+    <h2>${s.name} <span style="font-size:0.8rem;color:#777;font-weight:400;">${s.category}</span></h2>
+    <div class="info-block">
+      <div class="info-label">📋 系列介紹</div>
+      <div class="info-content bold-intro"><ul>${introHtml}</ul></div>
+    </div>
+    <div class="info-block">
+      <div class="info-label">✅ 系列優點</div>
+      <div class="info-content">${s.benefit}</div>
+    </div>
+    <div class="info-block">
+      <div class="info-label">👶 適合 TA</div>
+      <div class="info-content"><span class="age-tag">${s.age}</span></div>
+    </div>
+    <div class="info-block">
+      <div class="info-label">🔖 系列關鍵字</div>
+      <div class="info-content">${keywordHtml}</div>
+    </div>
+    <div class="info-block" style="margin-bottom:0">
+      <div class="info-label">📚 書冊資訊 <span style="font-weight:400;color:#aaa;">${bookCountLabel}</span></div>
+      <div class="info-content"><ul>${bookHtml}</ul></div>
+    </div>
+  </div>`;
+}
+
+function renderResultList(results) {
+  return `<div class="result-list">` +
+    results.map(s => `
+      <div class="result-item" onclick="showSeries('${s.id}')">
+        <div>
+          <div class="result-item-name">${s.name}</div>
+          <div class="result-item-sub">${s.benefit.substring(0,40)}…</div>
+        </div>
+        <div class="result-item-age">${s.age}</div>
+      </div>`).join("") +
+    `</div>`;
+}
+
+// ---- 聊天邏輯 ----
+function addBubble(role, html) {
+  const chat = document.getElementById("chat-area");
+  const div = document.createElement("div");
+  div.className = `bubble ${role}`;
+  const avatar = role === "bot" ? "🤖" : "👤";
+  const avatarClass = role;
+  if (role === "bot") {
+    div.innerHTML = `<div class="avatar bot">${avatar}</div><div>${html}</div>`;
+  } else {
+    div.innerHTML = `<div class="avatar user">${avatar}</div><div class="msg">${html}</div>`;
+  }
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function showSeries(id) {
+  const s = SERIES.find(x => x.id === id);
+  if (!s) return;
+  addBubble("user", `查詢：${s.name}`);
+  addBubble("bot", `<div class="msg" style="max-width:100%;padding:0;background:transparent;box-shadow:none;">找到系列資訊如下：</div>` + renderCard(s));
+}
+
+function sendQuery(q) {
+  document.getElementById("user-input").value = q;
+  send();
+}
+
+function send() {
+  const input = document.getElementById("user-input");
+  const q = input.value.trim();
+  if (!q) return;
+  addBubble("user", q);
+  input.value = "";
+
+  const results = searchSeries(q);
+  if (results.length === 0) {
+    addBubble("bot", `<div class="msg"><span class="no-result">找不到「${q}」相關的書系 😢<br>請試試：閱讀123、樂讀456、達克比、可能小學、幼幼書、知識繪本……</span></div>`);
+  } else if (results.length === 1) {
+    addBubble("bot", `<div class="msg" style="max-width:100%;padding:0;background:transparent;box-shadow:none;">找到 1 個系列：</div>` + renderCard(results[0]));
+  } else {
+    addBubble("bot", `<div class="msg">找到 ${results.length} 個相關書系，點選查看詳細資訊：</div>` + renderResultList(results));
+  }
+}
+</script>
+</body>
+</html>
